@@ -1,0 +1,626 @@
+
+var SoundObj = function(name, file, volume, color, noteArr, ellipseY) {
+	this.name = name;
+  this.file = file;
+  this.volume = volume;
+  this.color = color;
+  this.noteArr = noteArr;
+  this.ellipseY = ellipseY;
+};
+
+var drumMachine = [];
+drumMachine.kick = new SoundObj(
+	'kick',
+	[
+		'sounds/kick.mp3',
+		'sounds/kick2.mp3',
+		'sounds/kick3.mp3'
+	],
+	0.6,
+	'rgba(85, 85, 85, 1.0)',
+	[
+		1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+  	1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	],
+	3
+);
+drumMachine.snare = new SoundObj(
+	'snare',
+	[
+		'sounds/snare.mp3',
+		'sounds/snare2.mp3',
+		'sounds/snare3.mp3'
+	],
+	0.8,
+	'rgba(0, 255, 255, 1.0)',
+	[
+  	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+  	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	],
+	2
+);
+drumMachine.hh = new SoundObj(
+	'hh',
+	[
+		'sounds/hh.mp3',
+		'sounds/hh2.mp3',
+		'sounds/hh3.mp3'
+	],
+	0.8,
+	'rgba(255, 191, 0, 1.0)',
+	[
+  	1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,
+  	1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0
+	],
+	1
+);
+
+var base = {
+	frameRate: 35,
+	bgColor: '#222',
+	fill: '#fff',
+	resolution: 64,
+	controllAreaH: 110,
+	glidW: null,
+	note : 0,
+	viewMode: 1,
+	playFlg: false,
+	instSetNum: 0
+};
+
+var playBtn,rebuildBtn,sounds,img_logo;
+
+
+/*
+	Preload
+*/
+function preload() {
+   sounds = {
+   	kick : loadSound(drumMachine.kick.file[2]),
+   	snare : loadSound(drumMachine.snare.file[2]),
+  	hh : loadSound(drumMachine.hh.file[2])
+ };
+  sounds = {
+  	kick : [
+  		loadSound(drumMachine.kick.file[0]),
+  		loadSound(drumMachine.kick.file[1]),
+  		loadSound(drumMachine.kick.file[2])
+  	],
+  	snare : [
+  		loadSound(drumMachine.snare.file[0]),
+  		loadSound(drumMachine.snare.file[1]),
+  		loadSound(drumMachine.snare.file[2])
+  	],
+  	hh : [
+  		loadSound(drumMachine.hh.file[0]),
+  		loadSound(drumMachine.hh.file[1]),
+  		loadSound(drumMachine.hh.file[2])
+  	]
+  };
+
+  img_logo = loadImage("logo.gif");
+}
+
+
+/*
+	Setup
+*/
+function setup(mode) {
+
+	/* Basic Setting
+*/
+	frameRate(base.frameRate);
+	createCanvas(windowWidth, windowHeight);
+	background(base.bgColor);
+	fill(base.fill);
+	noStroke();
+  textSize(9);
+  ellipseMode(RADIUS);
+  //Calc GlidSize for ViewMode01
+	base.glidW = windowWidth / base.resolution;
+
+	/* Sound Setting
+	-----------------------------------*/
+	//Set Sounds Volume
+  sounds['kick'][0].setVolume(drumMachine.kick.volume);
+  sounds['kick'][1].setVolume(drumMachine.kick.volume);
+  sounds['kick'][2].setVolume(drumMachine.kick.volume);
+  sounds['snare'][0].setVolume(drumMachine.snare.volume);
+  sounds['snare'][1].setVolume(drumMachine.snare.volume);
+  sounds['snare'][2].setVolume(drumMachine.snare.volume);
+  sounds['hh'][0].setVolume(drumMachine.hh.volume);
+  sounds['hh'][1].setVolume(drumMachine.hh.volume);
+  sounds['hh'][2].setVolume(drumMachine.hh.volume);
+
+
+	playBtn = createButton('PLAY');
+  //playBtn.position(85, 30);
+  playBtn.id('playBtn');
+  playBtn.mousePressed(playSound);
+	stopBtn = createButton('STOP');
+  //stopBtn.position(162, 30);
+  stopBtn.id('stopBtn');
+  stopBtn.mousePressed(stopSound);
+	rebuildBtn = createButton('＼(^o^)／');
+  //rebuildBtn.position(276, 30);
+  rebuildBtn.id('rebuildBtn');
+  rebuildBtn.mousePressed(rebuildSound);
+  instSel = createSelect();
+  //instSel.position(400, 30);
+  instSel.option('Instruments1');
+  instSel.option('Instruments2');
+  instSel.option('Instruments3');
+  instSel.changed(changeInst);
+  instSel.id('instSel');
+
+}
+
+
+function draw() {
+
+	fill('#555');
+	text("Sumift Random Beat Maker 1.1", 15, 15);
+	//img
+	image(img_logo, 15, 23, img_logo.width / 2.1, img_logo.height / 2.1);
+
+	/* Draw - Static View (bg)
+	*/
+
+	if(base.viewMode == 1) {
+
+		
+		for(var i = 0; i < base.resolution; i++) {//64beat glid
+			stroke('#333');
+			var x = base.glidW * i;
+			line(x, base.controllAreaH, x, windowHeight);
+			if( i % (base.resolution / 8) == 0) {//8beat glid
+				stroke('#777');
+				line(x, base.controllAreaH, x, windowHeight);
+			}
+			if( i % (base.resolution / 4) == 0) {//4beat glid
+				stroke('#707');
+				line(x, base.controllAreaH, x, windowHeight);
+			}
+		}
+		
+		fill('rgba(255, 255, 255, 0.2)');
+		for(var i = 0; i < base.resolution; i++) {
+			var num = i % 8 + 1
+			var x = base.glidW * i;
+			text(num, x + base.glidW * 0.25, base.controllAreaH);
+		}
+	}//if
+
+	if(base.playFlg == true) {
+		
+		for (key in drumMachine) {
+			if(drumMachine[key]['noteArr'][base.note] == true) {
+				sounds[drumMachine[key]['name']][base.instSetNum].play();
+				dispView(drumMachine[key]['name'], base.note);
+			}
+		}
+
+	
+		base.note++;
+
+		/* Control - Reset
+		*/
+		if(base.note == base.resolution) {
+			base.note = 0;
+			background(base.bgColor);
+		}
+
+	}
+}
+
+
+/*Event - Resize*/
+
+function windowResized() {
+	resizeCanvas(windowWidth, windowHeight);
+	background(base.bgColor);
+	base.glidW = windowWidth / base.resolution;
+	redrowNoteSimbol();
+}
+
+
+
+function keyPressed() {
+}
+
+
+
+function keyTyped() {
+}
+
+
+
+function mousePressed() {
+	//base.viewMode = Math.floor(Math.random() * 2) + 1;
+	//background(base.bgColor);
+	//redrowNoteSimbol();
+}
+
+
+
+function playSound() {
+	base.playFlg = true;
+}
+
+function stopSound() {
+	base.playFlg = false;
+}
+
+function rebuildSound() {
+	rebuildNotes();
+}
+
+function changeInst() {
+	base.instSetNum = parseInt(instSel.value().replace(/Instruments/, '')) - 1;
+}
+
+
+
+function redrowNoteSimbol() {
+	if(base.viewMode == 1) {
+		for(var i = 0; i < base.note; i++) {
+			for (key in drumMachine) {
+				if(drumMachine[key]['noteArr'][i] == true) {
+					dispView(drumMachine[key]['name'], i);
+				}
+			}
+		}
+	}
+}
+
+
+ function bpmFps() {
+
+	return Math.round((base.bpm / 60) * (base.resolution / 4));
+}
+
+
+/*Util Func - dispView*/
+function dispView(inst, num) {
+	if(base.viewMode == 1) {
+		fill(drumMachine[inst]['color']);
+		ellipse(
+			windowWidth / base.resolution * num + (base.glidW / 2),
+			base.controllAreaH + (windowHeight - base.controllAreaH) / 4 * drumMachine[inst]['ellipseY'],
+			base.glidW / 2 * 0.8,
+			base.glidW / 2 * 0.8
+		);
+	} else if(base.viewMode == 2) {
+		noStroke();
+		switch(inst) {
+			case 'kick' :
+				var rnd = random(100, 150);
+				fill('rgba(55, 55, 55, 0.4)');
+				ellipse(windowWidth / 2 + random(-20, 20), windowHeight / 2 + random(-20, 20), rnd, rnd);
+				break;
+			case 'snare' :
+				var rnd = random(40, 50);
+				fill('rgba(0, 255, 255, 0.4)');
+				ellipse(windowWidth / 2 + random(-50, 50), windowHeight / 2 + random(-50, 50), rnd, rnd);
+				break;
+			case 'hh' :
+				var rnd = random(5, 10);
+				fill('rgba(249, 207, 30, 0.4)');
+				ellipse(windowWidth / 2 + random(-200, 200), windowHeight / 2 + random(-200, 200), rnd, rnd);
+				break;
+		}//switch
+	}//if
+}
+
+
+
+function rebuildNotes() {
+
+	/* Kick
+	--------------------------------*/
+	/*-- Base Beat --*/
+	switch(Math.floor(Math.random() * 11)) {
+		//kick - 4feel
+		case 0 :
+		case 1 :
+			for(var i = 0; i < drumMachine.kick.noteArr.length; i++) {
+				if(i % 16 != 0) {
+					drumMachine.kick.noteArr[i] = 0;
+				} else {
+					drumMachine.kick.noteArr[i] = 1;
+				}
+			}
+			break;
+		//kick - 8feel
+		case 2 :
+		case 3 :
+		case 4 :
+			for(var i = 0; i < drumMachine.kick.noteArr.length; i++) {
+				if(i != 0 && i != 16 && i != 48) {
+					drumMachine.kick.noteArr[i] = 0;
+				} else {
+					drumMachine.kick.noteArr[i] = 1;
+				}
+			}
+			break;
+		//kick - 4backfeel
+		case 5 :
+		case 6 :
+			for(var i = 0; i < drumMachine.kick.noteArr.length; i++) {
+				if(i != 0 && i % 16 != 8) {
+					drumMachine.kick.noteArr[i] = 0;
+				} else {
+					drumMachine.kick.noteArr[i] = 1;
+				}
+			}
+		 	break;
+		//kick - 16feel
+		case 7 :
+		case 8 :
+		case 9 :
+			for(var i = 0; i < drumMachine.kick.noteArr.length; i++) {
+				if(i != 0 && i != 4 && i != 8 && i != 28 && i != 32 && i != 36 && i != 40 && i != 60) {
+					drumMachine.kick.noteArr[i] = 0;
+				} else {
+					drumMachine.kick.noteArr[i] = 1;
+				}
+			}
+		 	break;
+	}//switch
+
+	/* Add Beat A (50%) */
+  if(Math.floor(Math.random() * 2) == 0) {
+  
+  	var sec1 = Math.floor(Math.random() * 4);
+  	
+  	var sec2 = Math.floor(Math.random() * 4);
+  	switch(Math.floor(Math.random() * 3) ) {
+  		case 0:
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 12] = 1;
+  			break;
+  		case 1:
+ 		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 2] = 1;
+  			break;
+  		case 2:
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 6] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 14] = 1;
+  			break
+  	}
+  }
+
+	/* Add Beat B (25%) */
+  if(Math.floor(Math.random() * 4) == 0) {
+  
+  	var sec1 = Math.floor(Math.random() * 4);
+ 
+  	var sec2 = Math.floor(Math.random() * 4);
+  	switch(Math.floor(Math.random() * 3) ) {
+  		case 0:
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 1] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 2] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 4] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 7] = 1;
+  			break;
+  		case 1:
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 2] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 3] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 6] = 1;
+  			break;
+  		case 2:
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 2] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 6] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 10] = 1;
+		  	drumMachine.kick.noteArr[(sec1 * 16) + (sec2 * 4) + 14] = 1;
+  			break;
+  	}
+  }
+
+
+	/* Snare-Base Beat */
+	switch(Math.floor(Math.random() * 11)) {
+		//snare - 2feel
+		case 0 :
+		case 1 :
+			for(var i = 0; i < drumMachine.snare.noteArr.length; i++) {
+				if(i != 32) {
+					drumMachine.snare.noteArr[i] = 0;
+				} else {
+					drumMachine.snare.noteArr[i] = 1;
+				}
+			}
+			break;
+		//snare - 7 3 beat
+		case 2 :
+		case 3 :
+		case 4 :
+		case 5 :
+			for(var i = 0; i < drumMachine.snare.noteArr.length; i++) {
+				if(i != 16 && i != 48) {
+					drumMachine.snare.noteArr[i] = 0;
+				} else {
+					drumMachine.snare.noteArr[i] = 1;
+				}
+			}
+			break;
+		//snare - 4backfeel
+		case 6 :
+		case 7 :
+			for(var i = 0; i < drumMachine.snare.noteArr.length; i++) {
+				if(i != 0 && i != 8 && i != 40) {
+					drumMachine.snare.noteArr[i] = 0;
+				} else {
+					drumMachine.snare.noteArr[i] = 1;
+				}
+			}
+		 	break;
+		//snare - shuffle
+		case 8 :
+		case 9 :
+			for(var i = 0; i < drumMachine.snare.noteArr.length; i++) {
+				if(i != 0 && i != 12 && i != 28 && i != 36 && i != 40 && i != 44 && i != 60) {
+					drumMachine.snare.noteArr[i] = 0;
+					//var rnd = Math.floor(Math.random() * 11;
+
+				} else {
+					drumMachine.snare.noteArr[i] = 1;
+				}
+			}
+		 	break;
+	}//switch
+
+	/* Add Beat A (50%) */
+  if(Math.floor(Math.random() * 2) == 0) {
+ 
+  	var sec1 = Math.floor(Math.random() * 4);
+  	
+  	var sec2 = Math.floor(Math.random() * 4);
+  	switch(Math.floor(Math.random() * 3) ) {
+  		case 0:
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+  			break;
+  		case 1:
+ 		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 4] = 1;
+  			break;
+  		case 2:
+ 		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 12] = 1;
+  			break;
+  	}
+  }
+
+	/* Add Beat B (25%) */
+  if(Math.floor(Math.random() * 4) == 0) {
+  
+  	var sec1 = Math.floor(Math.random() * 4);
+  
+  	var sec2 = Math.floor(Math.random() * 4);
+  	switch(Math.floor(Math.random() * 3) ) {
+  		case 0:
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 1] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 2] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 3] = 1;
+  			break;
+  		case 1:
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 3] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 6] = 1;
+  			break;
+  		case 2:
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 3] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 8] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 10] = 1;
+		  	drumMachine.snare.noteArr[(sec1 * 16) + (sec2 * 4) + 11] = 1;
+  			break;
+  	}
+  }
+
+
+	/* HH--Base Beat */
+	switch(Math.floor(Math.random() * 11)) {
+		//hh - 4feel
+		case 0 :
+		case 1 :
+			for(var i = 0; i < drumMachine.hh.noteArr.length; i++) {
+				if(i % 16 != 0) {
+					drumMachine.hh.noteArr[i] = 0;
+				} else {
+					drumMachine.hh.noteArr[i] = 1;
+				}
+			}
+			break;
+		//hh - 8feel
+		case 2 :
+		case 3 :
+		case 4 :
+			for(var i = 0; i < drumMachine.hh.noteArr.length; i++) {
+				if(i % 8 != 0) {
+					drumMachine.hh.noteArr[i] = 0;
+				} else {
+					drumMachine.hh.noteArr[i] = 1;
+				}
+			}
+			break;
+		//hh - 4backfeel
+		case 5 :
+		case 6 :
+			for(var i = 0; i < drumMachine.hh.noteArr.length; i++) {
+				if(i % 16 != 8) {
+					drumMachine.hh.noteArr[i] = 0;
+				} else {
+					drumMachine.hh.noteArr[i] = 1;
+				}
+			}
+		 	break;
+		//hh - 16feel
+		case 7 :
+		case 8 :
+		case 9 :
+			for(var i = 0; i < drumMachine.hh.noteArr.length; i++) {
+				if(i % 4 != 0) {
+					drumMachine.hh.noteArr[i] = 0;
+				} else {
+					drumMachine.hh.noteArr[i] = 1;
+				}
+			}
+		 	break;
+	}//switch
+
+	/* Add Beat A (50%) */
+  if(Math.floor(Math.random() * 2) == 0) {
+  
+  	var sec1 = Math.floor(Math.random() * 4);
+  	
+  	var sec2 = Math.floor(Math.random() * 4);
+  	switch(Math.floor(Math.random() * 3) ) {
+  		case 0:
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 8] = 1;
+  			break;
+  		case 1:
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 2] = 1;
+  			break;
+  		case 2:
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 6] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 14] = 1;
+  			break;
+  	}
+  }
+
+	/* Add Beat B (25%) */
+  if(Math.floor(Math.random() * 4) == 0) {
+  	
+  	var sec1 = Math.floor(Math.random() * 4);
+  	
+  	var sec2 = Math.floor(Math.random() * 4);
+  	switch(Math.floor(Math.random() * 3) ) {
+  		case 0:
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4)] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 1] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 2] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 3] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 4] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 5] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 6] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 7] = 1;
+  			break;
+  		case 1:
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 2] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 3] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 6] = 1;
+  			break;
+  		case 2:
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 2] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 6] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 10] = 1;
+		  	drumMachine.hh.noteArr[(sec1 * 16) + (sec2 * 4) + 14] = 1;
+  			break;
+  	}
+  }
+}
